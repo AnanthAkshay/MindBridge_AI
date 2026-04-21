@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+.gradle/
+build/
+target/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
+
+# Environment
+.env.local
+.env.production
+
+# Build outputs
+dist/
+out/
+*.jar
+*.class
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Docker
+docker-compose.override.yml

@@ -1,0 +1,5 @@
+rootProject.name = 'mindbridge-ai'
+
+include 'api-gateway'
+include 'core-service'
+include 'auth-service'

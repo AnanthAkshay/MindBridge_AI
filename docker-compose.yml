@@ -1,0 +1,95 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: mindbridge-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-mindbridge}
+      POSTGRES_USER: ${POSTGRES_USER:-mindbridge}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mindbridge_secret}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-mindbridge}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - mindbridge-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: mindbridge-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - mindbridge-network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: mindbridge-backend
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-mindbridge}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-mindbridge}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-mindbridge_secret}
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      JWT_SECRET: ${JWT_SECRET:-MindBridgeAI-Super-Secret-Key-Change-In-Production-2026}
+      GMAIL_USER: ${GMAIL_USER}
+      GMAIL_PASSWORD: ${GMAIL_PASSWORD}
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - mindbridge-network
+
+  nlp-service:
+    build:
+      context: ./nlp-service
+      dockerfile: Dockerfile
+    container_name: mindbridge-nlp
+    environment:
+      REDIS_URL: redis://redis:6379
+    ports:
+      - "8000:8000"
+    depends_on:
+      - redis
+    networks:
+      - mindbridge-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: mindbridge-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    networks:
+      - mindbridge-network
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  mindbridge-network:
+    driver: bridge

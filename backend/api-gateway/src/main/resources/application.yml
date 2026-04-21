@@ -1,0 +1,68 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: mindbridge-api-gateway
+
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/mindbridge}
+    username: ${SPRING_DATASOURCE_USERNAME:mindbridge}
+    password: ${SPRING_DATASOURCE_PASSWORD:mindbridge_secret}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 5
+      idle-timeout: 300000
+      connection-timeout: 20000
+
+  jpa:
+    hibernate:
+      ddl-auto: none
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+
+  data:
+    redis:
+      host: ${SPRING_DATA_REDIS_HOST:localhost}
+      port: ${SPRING_DATA_REDIS_PORT:6379}
+      timeout: 5000
+
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${GMAIL_USER}
+    password: ${GMAIL_PASSWORD}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+
+# JWT Configuration
+mindbridge:
+  jwt:
+    secret: ${JWT_SECRET:MindBridgeAI-Super-Secret-Key-Change-In-Production-2026}
+    access-token-expiration-ms: 900000       # 15 minutes
+    refresh-token-expiration-ms: 604800000   # 7 days
+  encryption:
+    key: ${ENCRYPTION_KEY:MindBridgeAI-256bit-AES-Secret!}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: always
+
+logging:
+  level:
+    com.mindbridge: INFO
+    org.springframework: WARN
