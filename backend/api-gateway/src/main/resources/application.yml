@@ -52,6 +52,11 @@ mindbridge:
     refresh-token-expiration-ms: 604800000   # 7 days
   encryption:
     key: ${ENCRYPTION_KEY:MindBridgeAI-256bit-AES-Secret!}
+  risk:
+    weight:
+      keyword: 0.4      # KeywordClassifier weight (40%)
+      tonal: 0.4         # TonalEmotionScorer weight (40%)
+      baseline: 0.2      # SessionBaselineAdjuster weight (20%)
 
 management:
   endpoints:

@@ -1,6 +1,7 @@
 package com.mindbridge.gateway.chat;
 
 import com.mindbridge.core.entity.User;
+import com.mindbridge.gateway.risk.RiskScoringPipeline;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -26,18 +27,21 @@ public class ChatWebSocketController {
     private final NlpServiceClient nlpClient;
     private final MemoryService memoryService;
     private final ClaudeAiClient claudeClient;
+    private final RiskScoringPipeline riskScoringPipeline;
 
     public ChatWebSocketController(
             ChatService chatService, 
             SimpMessagingTemplate messagingTemplate, 
             NlpServiceClient nlpClient, 
             MemoryService memoryService,
-            ClaudeAiClient claudeClient) {
+            ClaudeAiClient claudeClient,
+            RiskScoringPipeline riskScoringPipeline) {
         this.chatService = chatService;
         this.messagingTemplate = messagingTemplate;
         this.nlpClient = nlpClient;
         this.memoryService = memoryService;
         this.claudeClient = claudeClient;
+        this.riskScoringPipeline = riskScoringPipeline;
     }
 
     public record StreamDelta(String messageId, String content, boolean done) {}
@@ -67,6 +71,9 @@ public class ChatWebSocketController {
                     "/topic/session." + request.sessionId(),
                     response
             );
+
+            // Execute risk scoring pipeline (consumes existing NLP output — no re-run)
+            riskScoringPipeline.score(request.content(), request.sessionId(), nlp);
 
             // Trigger true streaming Claude response
             triggerClaudeResponseStream(request.sessionId(), request.content(), nlp, user.getId());
