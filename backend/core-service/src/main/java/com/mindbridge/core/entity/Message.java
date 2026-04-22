@@ -55,6 +55,9 @@ public class Message {
     @Column(name = "arousal")
     private Double arousal;
 
+    @Column(name = "risk_score")
+    private Integer riskScore;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
 
@@ -109,4 +112,7 @@ public class Message {
 
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
+
+    public Integer getRiskScore() { return riskScore; }
+    public void setRiskScore(Integer riskScore) { this.riskScore = riskScore; }
 }
