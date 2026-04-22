@@ -44,4 +44,28 @@ public interface SessionRepository extends JpaRepository<Session, Long> {
     long countByUserIdAndRiskLevelSince(@Param("userId") Long userId,
                                         @Param("riskLevel") RiskLevel riskLevel,
                                         @Param("since") Instant since);
+
+    /**
+     * Find all sessions that have expired (past their TTL).
+     * Used by the session expiry scheduled job.
+     *
+     * @param now the current timestamp
+     * @return list of expired sessions
+     */
+    @Query("SELECT s FROM Session s WHERE s.expiresAt IS NOT NULL AND s.expiresAt < :now AND s.status <> 'DELETED'")
+    List<Session> findExpiredSessions(@Param("now") Instant now);
+
+    /**
+     * Delete all sessions for a given user (GDPR deletion).
+     *
+     * @param userId the user ID
+     */
+    void deleteByUserId(Long userId);
+
+    /**
+     * Find sessions with null user (anonymous sessions).
+     *
+     * @return list of anonymous sessions
+     */
+    List<Session> findByUserIsNull();
 }

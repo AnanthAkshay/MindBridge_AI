@@ -27,7 +27,7 @@ public class Session {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
+    @JoinColumn(name = "user_id", nullable = true)
     private User user;
 
     private String title;
@@ -66,6 +66,9 @@ public class Session {
 
     @Column(name = "risk_updated_at")
     private Instant riskUpdatedAt;
+
+    @Column(name = "expires_at")
+    private Instant expiresAt;
 
     public Session() {}
 
@@ -114,4 +117,7 @@ public class Session {
 
     public Instant getRiskUpdatedAt() { return riskUpdatedAt; }
     public void setRiskUpdatedAt(Instant riskUpdatedAt) { this.riskUpdatedAt = riskUpdatedAt; }
+
+    public Instant getExpiresAt() { return expiresAt; }
+    public void setExpiresAt(Instant expiresAt) { this.expiresAt = expiresAt; }
 }

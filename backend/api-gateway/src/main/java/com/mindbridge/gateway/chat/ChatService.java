@@ -6,9 +6,13 @@ import com.mindbridge.core.entity.User;
 import com.mindbridge.core.repository.MessageRepository;
 import com.mindbridge.core.repository.SessionRepository;
 import com.mindbridge.core.service.MessageEncryptionService;
+import com.mindbridge.gateway.security.AuditService;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -22,14 +26,20 @@ public class ChatService {
     private final MessageRepository messageRepository;
     private final SessionRepository sessionRepository;
     private final MessageEncryptionService encryptionService;
+    private final AuditService auditService;
+    private final int sessionTtlDays;
 
     public ChatService(
             MessageRepository messageRepository,
             SessionRepository sessionRepository,
-            MessageEncryptionService encryptionService) {
+            MessageEncryptionService encryptionService,
+            AuditService auditService,
+            @Value("${mindbridge.session.ttl-days:${SESSION_TTL_DAYS:90}}") int sessionTtlDays) {
         this.messageRepository = messageRepository;
         this.sessionRepository = sessionRepository;
         this.encryptionService = encryptionService;
+        this.auditService = auditService;
+        this.sessionTtlDays = sessionTtlDays;
     }
 
     /** Create a new chat session for the given user */
@@ -40,7 +50,15 @@ public class ChatService {
         session.setTitle(title != null ? title : "New conversation");
         session.setSessionType("CHAT");
         session.setStatus("ACTIVE");
-        return sessionRepository.save(session);
+        session.setExpiresAt(Instant.now().plus(sessionTtlDays, ChronoUnit.DAYS));
+        session = sessionRepository.save(session);
+
+        // Audit log
+        Long userId = user != null ? user.getId() : null;
+        auditService.log("SESSION_CREATE", userId, session.getId(),
+                null, null, null);
+
+        return session;
     }
 
     /** Save a message — encrypts content before persisting */

@@ -3,6 +3,9 @@ package com.mindbridge.core.repository;
 import com.mindbridge.core.entity.Message;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -26,4 +29,22 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
      */
     List<Message> findBySessionIdAndSenderTypeOrderByCreatedAtDesc(
             Long sessionId, String senderType, Pageable pageable);
+
+    /**
+     * Hard-delete all messages for a session (GDPR §17 compliance).
+     *
+     * @param sessionId the session to purge
+     */
+    void deleteBySessionId(Long sessionId);
+
+    /**
+     * Hard-delete all messages for all sessions belonging to a user.
+     * Used by GDPR self-delete endpoint.
+     *
+     * @param userId the user ID whose messages should be deleted
+     */
+    @Modifying
+    @Query("DELETE FROM Message m WHERE m.session.id IN " +
+           "(SELECT s.id FROM Session s WHERE s.user.id = :userId)")
+    void deleteAllByUserId(@Param("userId") Long userId);
 }
