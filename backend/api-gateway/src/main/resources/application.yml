@@ -52,6 +52,20 @@ mindbridge:
     refresh-token-expiration-ms: 604800000   # 7 days
   encryption:
     key: ${ENCRYPTION_KEY:MindBridgeAI-256bit-AES-Secret!}
+    master-key: ${ENCRYPTION_MASTER_KEY:MindBridgeAI-Master-Key-256bit-Secret!}
+  risk:
+    weight:
+      keyword: 0.4      # KeywordClassifier weight (40%)
+      tonal: 0.4         # TonalEmotionScorer weight (40%)
+      baseline: 0.2      # SessionBaselineAdjuster weight (20%)
+  session:
+    ttl-days: ${SESSION_TTL_DAYS:90}
+  tls:
+    enforce: ${TLS_ENFORCE:false}
+  rate-limit:
+    enabled: ${RATE_LIMIT_ENABLED:true}
+    per-ip: ${RATE_LIMIT_PER_IP:60}
+    per-user: ${RATE_LIMIT_PER_USER:120}
 
 management:
   endpoints:
