@@ -1,5 +1,5 @@
 -- ============================================
--- MindBridge AI - Database Schema
+-- MindBridge AI - Database Schema (Production-Grade)
 -- PostgreSQL 16
 -- ============================================
 
@@ -38,7 +38,11 @@ CREATE TABLE IF NOT EXISTS sessions (
     started_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     ended_at        TIMESTAMP WITH TIME ZONE,
     created_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-    updated_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+    updated_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    risk_score      INTEGER      DEFAULT 0,
+    risk_level      VARCHAR(20)  DEFAULT 'LOW',
+    risk_updated_at TIMESTAMP WITH TIME ZONE,
+    expires_at      TIMESTAMP WITH TIME ZONE
 );
 
 -- Messages table (AES-256-GCM encrypted at rest)
@@ -52,6 +56,7 @@ CREATE TABLE IF NOT EXISTS messages (
     emotion_score       DOUBLE PRECISION,
     valence             DOUBLE PRECISION,
     arousal             DOUBLE PRECISION,
+    risk_score          INTEGER,
     created_at          TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );
 
@@ -67,6 +72,51 @@ CREATE TABLE IF NOT EXISTS emotion_memory (
     summary_text        TEXT,
     trigger_tag         VARCHAR(100),
     created_at          TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+);
+
+-- Audit log table (Security compliance)
+CREATE TABLE IF NOT EXISTS audit_log (
+    id              BIGSERIAL PRIMARY KEY,
+    action          VARCHAR(100) NOT NULL,
+    actor_id        BIGINT,
+    target_id       BIGINT,
+    ip_address      VARCHAR(45),
+    user_agent      TEXT,
+    metadata        TEXT,
+    created_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+);
+
+-- Escalation log table (Crisis management)
+CREATE TABLE IF NOT EXISTS escalation_log (
+    id              BIGSERIAL PRIMARY KEY,
+    session_id      BIGINT       NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+    user_id         BIGINT       REFERENCES users(id) ON DELETE CASCADE,
+    trigger_rule    VARCHAR(50)  NOT NULL,
+    risk_score      INTEGER      NOT NULL,
+    created_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    resolved_at     TIMESTAMP WITH TIME ZONE,
+    is_active       BOOLEAN      NOT NULL DEFAULT TRUE
+);
+
+-- Notifications outbox table (Transactional messaging)
+CREATE TABLE IF NOT EXISTS notifications_outbox (
+    id              BIGSERIAL PRIMARY KEY,
+    escalation_id   BIGINT       NOT NULL REFERENCES escalation_log(id) ON DELETE CASCADE,
+    channel         VARCHAR(20)  NOT NULL,
+    recipient       VARCHAR(255) NOT NULL,
+    subject         VARCHAR(255),
+    payload         TEXT         NOT NULL,
+    sent            BOOLEAN      NOT NULL DEFAULT FALSE,
+    created_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+);
+
+-- Therapist queue table (Review workflow)
+CREATE TABLE IF NOT EXISTS therapist_queue (
+    id              BIGSERIAL PRIMARY KEY,
+    escalation_id   BIGINT       NOT NULL REFERENCES escalation_log(id) ON DELETE CASCADE,
+    status          VARCHAR(20)  NOT NULL DEFAULT 'pending',
+    assigned_to     VARCHAR(100),
+    created_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );
 
 -- Recommendation tracking for clinical interventions
@@ -100,6 +150,8 @@ CREATE INDEX IF NOT EXISTS idx_sessions_status ON sessions(status);
 CREATE INDEX IF NOT EXISTS idx_messages_session_id ON messages(session_id);
 CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(created_at);
 CREATE INDEX IF NOT EXISTS idx_otp_codes_email ON otp_codes(email);
+CREATE INDEX IF NOT EXISTS idx_audit_log_actor ON audit_log(actor_id);
+CREATE INDEX IF NOT EXISTS idx_escalation_log_session ON escalation_log(session_id);
 
 -- Seed a demo user (password: "Demo1234!" - BCrypt strength 12)
 INSERT INTO users (email, password_hash, full_name, role, is_anonymous)
