@@ -4,6 +4,9 @@ import { DashboardPage } from "./pages/DashboardPage";
 import { ChatPage } from "./pages/ChatPage";
 import { OnboardingPage } from "./pages/OnboardingPage";
 import { ProtectedRoute } from "./components/ProtectedRoute";
+import { AnalyticsDashboardPage } from "./pages/AnalyticsDashboardPage";
+import { SessionHistoryPage } from "./pages/SessionHistoryPage";
+import { TherapistDashboardPage } from "./pages/TherapistDashboardPage";
 
 export function App() {
   return (
@@ -31,6 +34,39 @@ export function App() {
             <ProtectedRoute>
               <AppLayout>
                 <ChatPage />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/analytics"
+          element={
+            <ProtectedRoute>
+              <AppLayout>
+                <AnalyticsDashboardPage />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/history"
+          element={
+            <ProtectedRoute>
+              <AppLayout>
+                <SessionHistoryPage />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/therapist"
+          element={
+            <ProtectedRoute>
+              <AppLayout>
+                <TherapistDashboardPage />
               </AppLayout>
             </ProtectedRoute>
           }

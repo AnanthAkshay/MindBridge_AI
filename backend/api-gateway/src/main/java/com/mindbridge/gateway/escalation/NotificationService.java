@@ -7,6 +7,7 @@ import com.mindbridge.core.repository.NotificationOutboxRepository;
 import com.mindbridge.core.repository.TherapistQueueRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,6 +28,7 @@ public class NotificationService {
 
     private final TherapistQueueRepository therapistQueueRepository;
     private final NotificationOutboxRepository notificationOutboxRepository;
+    private final SimpMessagingTemplate messagingTemplate;
 
     /**
      * Construct the notification service.
@@ -35,9 +37,11 @@ public class NotificationService {
      * @param notificationOutboxRepository repository for notification outbox entries
      */
     public NotificationService(TherapistQueueRepository therapistQueueRepository,
-                                NotificationOutboxRepository notificationOutboxRepository) {
+                                NotificationOutboxRepository notificationOutboxRepository,
+                                SimpMessagingTemplate messagingTemplate) {
         this.therapistQueueRepository = therapistQueueRepository;
         this.notificationOutboxRepository = notificationOutboxRepository;
+        this.messagingTemplate = messagingTemplate;
     }
 
     /**
@@ -84,6 +88,9 @@ public class NotificationService {
                 smsPayload
         );
         notificationOutboxRepository.save(smsNotification);
+
+        // 4. Send real-time WebSocket alert to therapists
+        messagingTemplate.convertAndSend("/topic/escalations", escalationLog.getId());
 
         long elapsed = System.currentTimeMillis() - startTime;
         logger.info("NotificationService.notify completed in {}ms for escalation {}",

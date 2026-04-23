@@ -49,4 +49,11 @@ public interface EscalationLogRepository extends JpaRepository<EscalationLog, Lo
      * @return list of active escalations (should be 0 or 1)
      */
     List<EscalationLog> findBySessionIdAndIsActiveTrue(Long sessionId);
+
+    /**
+     * Find all active escalations across all users (for therapist queue).
+     *
+     * @return list of active escalations
+     */
+    List<EscalationLog> findByIsActiveTrueOrderByCreatedAtDesc();
 }
