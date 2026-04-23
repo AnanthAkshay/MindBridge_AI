@@ -134,8 +134,18 @@ public class ClaudeAiClient {
             
         if (lowerMsg.contains("overwhelmed") || lowerMsg.contains("stress")) {
             fallbackResponse = "I hear that you're feeling incredibly overwhelmed right now. It is completely normal to feel paralyzed when everything piles up. Let's take a deep breath together. What is the very first, smallest thing we can address?";
-        } else if (lowerMsg.contains("sad") || lowerMsg.contains("crying")) {
-            fallbackResponse = "I'm so sorry you're feeling this weight right now. It's perfectly okay to feel sad, and you don't have to navigate it alone. I'm here with you.";
+        } else if (lowerMsg.contains("sad") || lowerMsg.contains("crying") || lowerMsg.contains("depressed")) {
+            fallbackResponse = "I'm so sorry you're feeling this weight right now. It's perfectly okay to feel sad, and you don't have to navigate it alone. I'm here with you. Do you want to talk about what brought this on?";
+        } else if (lowerMsg.contains("anxious") || lowerMsg.contains("panic") || lowerMsg.contains("worry")) {
+            fallbackResponse = "Anxiety can feel so intense and all-consuming. I want you to know you are safe right now. Try to feel your feet on the ground. Can you name three things you can see around you?";
+        } else if (lowerMsg.contains("lonely") || lowerMsg.contains("alone") || lowerMsg.contains("isolated")) {
+            fallbackResponse = "Loneliness is a very heavy feeling to carry. Please know that even in this digital space, you are heard and your feelings matter deeply. Have you been feeling this way for a while?";
+        } else if (lowerMsg.contains("angry") || lowerMsg.contains("mad") || lowerMsg.contains("frustrated")) {
+            fallbackResponse = "It's completely valid to feel angry right now. Anger is often a sign that a boundary has been crossed or something feels unfair. It's okay to let that out here. What is the core of this frustration?";
+        } else if (lowerMsg.contains("sleep") || lowerMsg.contains("tired") || lowerMsg.contains("exhausted")) {
+            fallbackResponse = "It sounds like you are physically and emotionally drained. Rest is so important for your mental health. Try not to push yourself too hard today. What is one small way you can be gentle with yourself right now?";
+        } else if (lowerMsg.contains("happy") || lowerMsg.contains("good") || lowerMsg.contains("great") || lowerMsg.contains("excited")) {
+            fallbackResponse = "That is wonderful to hear! It's so important to recognize and celebrate these positive moments. What do you think is contributing to this good feeling?";
         }
 
         String[] chunks = fallbackResponse.split(" ");
