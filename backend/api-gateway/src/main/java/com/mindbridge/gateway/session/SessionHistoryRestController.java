@@ -111,7 +111,7 @@ public class SessionHistoryRestController {
         }).toList();
 
         List<RecommendationDto> recDtos = recommendations.stream()
-                .map(r -> new RecommendationDto(r.getRecommendationType(), r.getContent(), r.getCreatedAt().toString()))
+                .map(r -> new RecommendationDto(r.getContentType(), r.getContentId(), r.getCreatedAt().toString()))
                 .toList();
 
         return ResponseEntity.ok(new SessionDetailDto(

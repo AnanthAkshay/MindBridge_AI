@@ -156,14 +156,14 @@ export function subscribeToSession(
 /**
  * Send a chat message via STOMP.
  */
-export function sendChatMessage(sessionId: number, content: string) {
+export function sendChatMessage(sessionId: number, content: string, useMemory = true) {
   if (!stompClient?.connected) {
     throw new Error("WebSocket not connected");
   }
 
   stompClient.publish({
     destination: "/app/chat.send",
-    body: JSON.stringify({ sessionId, content }),
+    body: JSON.stringify({ sessionId, content, useMemory }),
   });
 }
 

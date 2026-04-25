@@ -10,43 +10,42 @@ import {
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
 import { GlassCard } from "../components/GlassCard";
 import { SignalWave } from "../components/SignalWave";
 import { StatCard } from "../components/StatCard";
-
-const sessions = [
-  {
-    title: "Grounding check-in",
-    status: "Active",
-    time: "11 min",
-    tone: "text-success"
-  },
-  {
-    title: "Cognitive reframing",
-    status: "Queued",
-    time: "Today",
-    tone: "text-warning"
-  },
-  {
-    title: "Sleep recovery plan",
-    status: "Ready",
-    time: "8:30 PM",
-    tone: "text-secondary"
-  }
-];
-
-const chatPreview = [
-  {
-    role: "User",
-    copy: "I keep looping on the same work thought and my chest feels tight."
-  },
-  {
-    role: "MindBridge",
-    copy: "Let's slow the loop, name the pressure, and choose one next action."
-  }
-];
+import { useAuth } from "../store/auth-store";
+import { analyticsApi, type EmotionDistribution, type MoodTrend, type SessionTimeline } from "../services/analytics";
+import { listChatSessions, type ChatSession } from "../services/chat";
 
 export function DashboardPage() {
+  const { state } = useAuth();
+  const user = state.status === "authenticated" ? state.user : null;
+  const [moodTrend, setMoodTrend] = useState<MoodTrend[]>([]);
+  const [emotionDistribution, setEmotionDistribution] = useState<EmotionDistribution[]>([]);
+  const [timeline, setTimeline] = useState<SessionTimeline[]>([]);
+  const [sessions, setSessions] = useState<ChatSession[]>([]);
+
+  useEffect(() => {
+    if (!user) return;
+    analyticsApi.getMoodTrend(user.id).then(setMoodTrend).catch(() => setMoodTrend([]));
+    analyticsApi.getEmotionDistribution(user.id).then(setEmotionDistribution).catch(() => setEmotionDistribution([]));
+    analyticsApi.getSessionTimeline(user.id).then(setTimeline).catch(() => setTimeline([]));
+    listChatSessions().then(setSessions).catch(() => setSessions([]));
+  }, [user]);
+
+  const avgMood = useMemo(() => {
+    if (!moodTrend.length) return "N/A";
+    const values = moodTrend.filter((d) => d.averageMood > 0).map((d) => d.averageMood);
+    if (!values.length) return "N/A";
+    return `${(values.reduce((a, b) => a + b, 0) / values.length).toFixed(1)}/10`;
+  }, [moodTrend]);
+
+  const dominantEmotion = useMemo(() => emotionDistribution[0]?.name ?? "neutral", [emotionDistribution]);
+  const latestRisk = timeline[0]?.riskScore ?? 0;
+  const riskLabel = latestRisk >= 65 ? "High" : latestRisk >= 40 ? "Moderate" : "Low";
+  const recentSessions = sessions.slice(0, 3);
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 16 }}
@@ -104,22 +103,22 @@ export function DashboardPage() {
         <div className="grid gap-5 md:grid-cols-3">
           <StatCard
             label="Mood stability"
-            value="84%"
-            delta="+12% from last week"
+            value={avgMood}
+            delta={`Dominant emotion: ${dominantEmotion}`}
             icon={HeartPulse}
             tone="primary"
           />
           <StatCard
-            label="Session latency"
-            value="126ms"
-            delta="Redis cache prepared"
+            label="Session volume"
+            value={`${timeline.length}`}
+            delta="Recent AI-assisted sessions"
             icon={TimerReset}
             tone="secondary"
           />
           <StatCard
             label="Risk triage"
-            value="Low"
-            delta="Escalation rules clear"
+            value={riskLabel}
+            delta={latestRisk ? `Risk score: ${latestRisk}/100` : "No high-risk triggers"}
             icon={LineChart}
             tone="warning"
           />
@@ -132,7 +131,7 @@ export function DashboardPage() {
                 Active bridge session
               </p>
               <h3 className="mt-2 text-2xl font-bold text-foreground">
-                Anxiety support pathway
+                AI-guided care snapshot
               </h3>
             </div>
             <span className="rounded-full border border-success/30 bg-success/10 px-3 py-2 text-sm font-bold text-success">
@@ -140,7 +139,18 @@ export function DashboardPage() {
             </span>
           </div>
           <div className="mt-6 grid gap-4 lg:grid-cols-2">
-            {chatPreview.map((message) => (
+            {[
+              {
+                role: "Mood Trend",
+                copy: moodTrend.length
+                  ? `Last update: ${moodTrend[moodTrend.length - 1].date} with mood ${moodTrend[moodTrend.length - 1].averageMood}/10`
+                  : "No mood trend captured yet. Start a chat check-in to generate analytics.",
+              },
+              {
+                role: "AI Insight",
+                copy: `Dominant emotional signal is ${dominantEmotion}. Latest risk tier is ${riskLabel.toLowerCase()}.`,
+              },
+            ].map((message) => (
               <div
                 key={message.role}
                 className="rounded-panel border border-border/60 bg-surface/48 p-5 backdrop-blur-lg"
@@ -193,21 +203,25 @@ export function DashboardPage() {
             </div>
           </div>
           <div className="mt-6 space-y-3">
-            {sessions.map((session) => (
+            {recentSessions.length === 0 ? (
+              <div className="rounded-brand border border-border/60 bg-surface/46 p-4 text-sm text-muted">
+                No sessions yet. Start a chat to populate this queue.
+              </div>
+            ) : recentSessions.map((session) => (
               <div
-                key={session.title}
+                key={session.id}
                 className="flex items-center justify-between gap-3 rounded-brand border border-border/60 bg-surface/46 p-4 backdrop-blur-lg"
               >
                 <div className="min-w-0">
                   <p className="truncate font-bold text-foreground">
                     {session.title}
                   </p>
-                  <p className={`mt-1 text-sm font-semibold ${session.tone}`}>
+                  <p className={`mt-1 text-sm font-semibold ${session.status === "ACTIVE" ? "text-success" : "text-muted"}`}>
                     {session.status}
                   </p>
                 </div>
                 <span className="shrink-0 rounded-full bg-background/70 px-3 py-1 text-sm font-bold text-muted">
-                  {session.time}
+                  {new Date(session.createdAt).toLocaleDateString()}
                 </span>
               </div>
             ))}

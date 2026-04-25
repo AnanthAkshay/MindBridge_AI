@@ -11,7 +11,8 @@ import { websocketService } from "../services/websocket";
 const COLORS = ['#0ea5e9', '#8b5cf6', '#ec4899', '#f43f5e', '#10b981', '#f59e0b'];
 
 export function AnalyticsDashboardPage() {
-  const { user } = useAuth();
+  const { state } = useAuth();
+  const user = state.status === "authenticated" ? state.user : null;
   const [moodTrend, setMoodTrend] = useState<MoodTrend[]>([]);
   const [emotions, setEmotions] = useState<EmotionDistribution[]>([]);
   const [timeline, setTimeline] = useState<SessionTimeline[]>([]);
@@ -67,7 +68,7 @@ export function AnalyticsDashboardPage() {
           value={liveRiskLevel}
           delta={liveRiskLevel !== 'LOW' ? "Elevated risk detected" : "Normal baseline"}
           icon={AlertTriangle}
-          tone={liveRiskLevel === 'HIGH' ? 'warning' : liveRiskLevel === 'MODERATE' ? 'warning' : 'success'}
+          tone={liveRiskLevel === 'HIGH' || liveRiskLevel === 'MODERATE' ? 'warning' : 'primary'}
         />
       </div>
 

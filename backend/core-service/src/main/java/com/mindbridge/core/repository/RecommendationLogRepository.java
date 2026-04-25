@@ -14,5 +14,7 @@ public interface RecommendationLogRepository extends JpaRepository<Recommendatio
     @Query("SELECT r FROM RecommendationLog r WHERE r.user.id = :userId AND r.createdAt >= :since")
     List<RecommendationLog> findRecentRecommendationsForUser(Long userId, java.time.Instant since);
 
+    List<RecommendationLog> findBySessionIdOrderByCreatedAtDesc(Long sessionId);
+
     Optional<RecommendationLog> findByUserIdAndContentIdAndCompletedFalse(Long userId, String contentId);
 }

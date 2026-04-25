@@ -7,7 +7,8 @@ import { websocketService } from "../services/websocket";
 import { useAuth } from "../store/auth-store";
 
 export function TherapistDashboardPage() {
-  const { user } = useAuth();
+  const { state } = useAuth();
+  const user = state.status === "authenticated" ? state.user : null;
   const [escalations, setEscalations] = useState<EscalationSummary[]>([]);
   const [selectedTranscript, setSelectedTranscript] = useState<SessionTranscript | null>(null);
   const [selectedEscalationId, setSelectedEscalationId] = useState<number | null>(null);

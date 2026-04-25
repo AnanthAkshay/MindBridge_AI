@@ -7,7 +7,8 @@ import { useAuth } from "../store/auth-store";
 import { LineChart, Line, ResponsiveContainer, YAxis } from "recharts";
 
 export function SessionHistoryPage() {
-  const { user } = useAuth();
+  const { state } = useAuth();
+  const user = state.status === "authenticated" ? state.user : null;
   const [sessions, setSessions] = useState<SessionHistorySummary[]>([]);
   const [keyword, setKeyword] = useState("");
   const [selectedSession, setSelectedSession] = useState<SessionDetail | null>(null);
