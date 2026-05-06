@@ -168,6 +168,14 @@ public class RiskScoringPipeline {
                     "/topic/session." + sessionId + ".risk",
                     event
             );
+            
+            Session session = sessionRepository.findById(sessionId).orElse(null);
+            if (session != null && session.getUser() != null) {
+                messagingTemplate.convertAndSend(
+                        "/topic/user." + session.getUser().getId() + ".risk",
+                        event
+                );
+            }
 
             logger.debug("Broadcast risk_update to /topic/session.{}.risk: score={}, level={}",
                     sessionId, result.score(), result.level());

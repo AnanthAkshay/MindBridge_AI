@@ -1,16 +1,17 @@
 package com.mindbridge.gateway.chat;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 import java.time.Duration;
 import java.util.List;
@@ -31,8 +32,11 @@ public class ClaudeAiClient {
     @Value("${anthropic.api.key:}")
     private String apiKey;
 
+    @Value("${gemini.api.key:${GEMINI_API_KEY:}}")
+    private String geminiApiKey;
+
     public ClaudeAiClient(WebClient.Builder webClientBuilder, ObjectMapper objectMapper) {
-        this.webClient = webClientBuilder.baseUrl("https://api.anthropic.com/v1").build();
+        this.webClient = webClientBuilder.build();
         this.objectMapper = objectMapper;
     }
 
@@ -54,13 +58,32 @@ public class ClaudeAiClient {
         // 2. Intelligent Prompt Compilation
         String systemPrompt = buildSystemPrompt(emotion, valence, memory);
 
-        // Fallback robust local stream if API key is not configured securely yet
-        if (apiKey == null || apiKey.isBlank()) {
-            logger.warn("ANTHROPIC_API_KEY missing. Falling back to local deterministic stream.");
-            return simulateLocalReactiveStream(userMessage, systemPrompt);
+        // Prefer Anthropic when available.
+        if (apiKey != null && !apiKey.isBlank()) {
+            return streamFromAnthropic(userMessage, systemPrompt, previousMessages)
+                    .onErrorResume(err -> {
+                        logger.warn("Anthropic stream failed, attempting Gemini fallback: {}", err.getMessage());
+                        return streamFromGemini(userMessage, systemPrompt);
+                    });
         }
 
-        // 3. Anthropic API Request construction
+        // If Anthropic key is missing, use Gemini key if configured.
+        if (geminiApiKey != null && !geminiApiKey.isBlank()) {
+            return streamFromGemini(userMessage, systemPrompt)
+                    .onErrorResume(err -> {
+                        logger.warn("Gemini call failed. Falling back to deterministic stream: {}", err.getMessage());
+                        return simulateLocalReactiveStream(userMessage, systemPrompt);
+                    });
+        }
+
+        logger.warn("No AI API key configured. Falling back to deterministic stream.");
+        return simulateLocalReactiveStream(userMessage, systemPrompt);
+    }
+
+    private Flux<String> streamFromAnthropic(
+            String userMessage,
+            String systemPrompt,
+            List<Map<String, String>> previousMessages) {
         Map<String, Object> requestBody = Map.of(
                 "model", "claude-3-sonnet-20240229",
                 "max_tokens", 800,
@@ -70,7 +93,7 @@ public class ClaudeAiClient {
         );
 
         return webClient.post()
-                .uri("/messages")
+                .uri("https://api.anthropic.com/v1/messages")
                 .header("x-api-key", apiKey)
                 .header("anthropic-version", "2023-06-01")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -87,6 +110,63 @@ public class ClaudeAiClient {
                     }
                 })
                 .filter(text -> !text.isEmpty());
+    }
+
+    private Flux<String> streamFromGemini(String userMessage, String systemPrompt) {
+        Map<String, Object> requestBody = Map.of(
+                "contents", List.of(
+                        Map.of("role", "user", "parts", List.of(Map.of("text", userMessage)))
+                ),
+                "systemInstruction", Map.of(
+                        "parts", List.of(Map.of("text", systemPrompt))
+                ),
+                "generationConfig", Map.of(
+                        "temperature", 0.7,
+                        "maxOutputTokens", 800
+                )
+        );
+
+        return webClient.post()
+                .uri("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={key}", geminiApiKey)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(requestBody)
+                .retrieve()
+                .onStatus(HttpStatusCode::isError, response ->
+                        response.bodyToMono(String.class)
+                                .defaultIfEmpty("Unknown Gemini API error")
+                                .flatMap(body -> Mono.error(new IllegalStateException(body))))
+                .bodyToMono(JsonNode.class)
+                .map(this::extractGeminiText)
+                .flatMapMany(text -> chunkTextAsFlux(text, 24));
+    }
+
+    private String extractGeminiText(JsonNode node) {
+        JsonNode candidates = node.path("candidates");
+        if (!candidates.isArray() || candidates.isEmpty()) {
+            return "I'm here with you. Could you share a bit more about what is feeling hardest right now?";
+        }
+        JsonNode parts = candidates.get(0).path("content").path("parts");
+        if (!parts.isArray() || parts.isEmpty()) {
+            return "Thank you for sharing this with me. What feels most important to unpack first?";
+        }
+        return parts.get(0).path("text").asText(
+                "I appreciate you opening up. Let's take this one step at a time together."
+        );
+    }
+
+    private Flux<String> chunkTextAsFlux(String text, int chunkSize) {
+        if (text == null || text.isBlank()) {
+            return Flux.empty();
+        }
+        String[] words = text.trim().split("\\s+");
+        int chunks = (int) Math.ceil((double) words.length / chunkSize);
+        return Flux.interval(Duration.ofMillis(40))
+                .take(chunks)
+                .map(i -> {
+                    int start = i.intValue() * chunkSize;
+                    int end = Math.min(start + chunkSize, words.length);
+                    return String.join(" ", java.util.Arrays.copyOfRange(words, start, end)) + " ";
+                });
     }
 
     private String buildSystemPrompt(String emotion, Double valence, MemoryService.MemoryInsight memory) {

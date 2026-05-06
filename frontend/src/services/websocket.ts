@@ -156,14 +156,14 @@ export function subscribeToSession(
 /**
  * Send a chat message via STOMP.
  */
-export function sendChatMessage(sessionId: number, content: string) {
+export function sendChatMessage(sessionId: number, content: string, useMemory = true) {
   if (!stompClient?.connected) {
     throw new Error("WebSocket not connected");
   }
 
   stompClient.publish({
     destination: "/app/chat.send",
-    body: JSON.stringify({ sessionId, content }),
+    body: JSON.stringify({ sessionId, content, useMemory }),
   });
 }
 
@@ -196,3 +196,29 @@ export function disconnectWebSocket() {
 export function isWebSocketConnected(): boolean {
   return stompClient?.connected ?? false;
 }
+
+let escalationsSub: { unsubscribe: () => void } | null = null;
+let riskAlertsSub: { unsubscribe: () => void } | null = null;
+
+export const websocketService = {
+  subscribeToEscalations: (onEscalation: (escalationId: number) => void) => {
+    if (!stompClient?.connected) return;
+    escalationsSub = stompClient.subscribe("/topic/escalations", (frame: IMessage) => {
+      onEscalation(Number(frame.body));
+    });
+  },
+  unsubscribeFromEscalations: () => {
+    escalationsSub?.unsubscribe();
+    escalationsSub = null;
+  },
+  subscribeToRiskAlerts: (userId: number, onRiskAlert: (alert: any) => void) => {
+    if (!stompClient?.connected) return;
+    riskAlertsSub = stompClient.subscribe(`/topic/user.${userId}.risk`, (frame: IMessage) => {
+      onRiskAlert(JSON.parse(frame.body));
+    });
+  },
+  unsubscribeFromRiskAlerts: (userId: number) => {
+    riskAlertsSub?.unsubscribe();
+    riskAlertsSub = null;
+  }
+};

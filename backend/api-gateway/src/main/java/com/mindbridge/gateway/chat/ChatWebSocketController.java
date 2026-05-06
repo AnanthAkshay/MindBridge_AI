@@ -9,6 +9,8 @@ import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.Instant;
 import java.util.List;
@@ -23,6 +25,7 @@ import java.util.UUID;
  */
 @Controller
 public class ChatWebSocketController {
+    private static final Logger logger = LoggerFactory.getLogger(ChatWebSocketController.class);
 
     private final ChatService chatService;
     private final SimpMessagingTemplate messagingTemplate;
@@ -85,8 +88,9 @@ public class ChatWebSocketController {
             escalationIntegrationService.processRiskResult(request.sessionId(), riskResult);
 
             // Trigger true streaming Claude response
-            triggerClaudeResponseStream(request.sessionId(), request.content(), nlp, user.getId());
-        });
+            boolean includeMemory = request.useMemory() == null || request.useMemory();
+            triggerClaudeResponseStream(request.sessionId(), request.content(), nlp, user.getId(), includeMemory);
+        }, err -> logger.error("NLP processing failed for session {}", request.sessionId(), err));
     }
 
     /**
@@ -114,10 +118,10 @@ public class ChatWebSocketController {
     /**
      * Executes Claude API Call and streams directly to STOMP WebSocket.
      */
-    private void triggerClaudeResponseStream(Long sessionId, String userMessage, NlpServiceClient.NlpResponse nlp, Long userId) {
+    private void triggerClaudeResponseStream(Long sessionId, String userMessage, NlpServiceClient.NlpResponse nlp, Long userId, boolean includeMemory) {
         
         // 1. Fetch DB Memory Context concurrently 
-        MemoryService.MemoryInsight memory = memoryService.getUserMemoryContext(userId);
+        MemoryService.MemoryInsight memory = includeMemory ? memoryService.getUserMemoryContext(userId) : null;
         
         // 2. Broadcast Start Typing
         messagingTemplate.convertAndSend(
@@ -165,6 +169,7 @@ public class ChatWebSocketController {
                 );
             })
             .doOnError(err -> {
+                logger.error("AI response stream failed for session {}", sessionId, err);
                 messagingTemplate.convertAndSend(
                         "/topic/session." + sessionId + ".typing",
                         new TypingEvent(sessionId, 0L, "MindBridge AI", false, Instant.now())

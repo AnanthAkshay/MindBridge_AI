@@ -47,7 +47,9 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-mindbridge_secret}
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
+      MINDBRIDGE_NLP_URL: http://nlp-service:8000
       JWT_SECRET: ${JWT_SECRET:-MindBridgeAI-Super-Secret-Key-Change-In-Production-2026}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-AIzaSyCYfwKT252q1US3_6rXNciSZsnv1HQOaZ0}
       GMAIL_USER: ${GMAIL_USER}
       GMAIL_PASSWORD: ${GMAIL_PASSWORD}
     ports:

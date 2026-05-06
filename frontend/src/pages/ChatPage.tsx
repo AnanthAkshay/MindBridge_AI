@@ -49,6 +49,11 @@ export function ChatPage() {
   const [loadingSessions, setLoadingSessions] = useState(true);
   const [memoryInsight, setMemoryInsight] = useState<MemoryInsight | null>(null);
   const [recommendations, setRecommendations] = useState<InterventionCard[]>([]);
+  const [sendError, setSendError] = useState<string | null>(null);
+  const [useMemory, setUseMemory] = useState<boolean>(() => {
+    const saved = localStorage.getItem("mindbridge_use_memory");
+    return saved == null ? true : saved === "true";
+  });
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -124,9 +129,18 @@ export function ChatPage() {
       activeSession.id,
       (msg: ChatMessage) => {
         setMessages((prev) => {
+          const withoutOptimistic = prev.filter(
+            (m) =>
+              !(
+                m.id < 0 &&
+                m.senderType === "USER" &&
+                msg.senderType === "USER" &&
+                m.content === msg.content
+              )
+          );
           // Deduplicate by id
-          if (prev.some((m) => m.id === msg.id)) return prev;
-          return [...prev, msg];
+          if (withoutOptimistic.some((m) => m.id === msg.id)) return withoutOptimistic;
+          return [...withoutOptimistic, msg];
         });
       },
       (event: TypingEvent) => {
@@ -192,9 +206,15 @@ export function ChatPage() {
     try {
       const history = await getChatHistory(session.id);
       setMessages(history);
-      const memory = await fetchMemoryInsight();
-      if (memory && memory.triggers && memory.triggers.length > 0) {
-        setMemoryInsight(memory);
+      if (useMemory) {
+        const memory = await fetchMemoryInsight();
+        if (memory && memory.triggers && memory.triggers.length > 0) {
+          setMemoryInsight(memory);
+        } else {
+          setMemoryInsight(null);
+        }
+      } else {
+        setMemoryInsight(null);
       }
     } catch (e) {
       console.error("Failed to load history or memory:", e);
@@ -218,8 +238,21 @@ export function ChatPage() {
     if (!trimmed || !activeSession || sending || !connected) return;
 
     setSending(true);
+    setSendError(null);
+    const optimisticId = -Date.now();
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: optimisticId,
+        sessionId: activeSession.id,
+        senderType: "USER",
+        content: trimmed,
+        createdAt: new Date().toISOString(),
+      },
+    ]);
+
     try {
-      sendChatMessage(activeSession.id, trimmed);
+      sendChatMessage(activeSession.id, trimmed, useMemory);
       setInput("");
       // Clear typing indicator
       if (typingTimeoutRef.current) {
@@ -228,6 +261,8 @@ export function ChatPage() {
       sendTypingIndicator(activeSession.id, false);
     } catch (e) {
       console.error("Failed to send:", e);
+      setMessages((prev) => prev.filter((m) => m.id !== optimisticId));
+      setSendError("Message failed to send. Check connection and try again.");
     } finally {
       setSending(false);
     }
@@ -369,6 +404,20 @@ export function ChatPage() {
               </div>
               <ConnectionBadge connected={connected} />
             </div>
+            <div className="flex items-center justify-between px-4 py-2 border-b border-border/30 bg-surface/20">
+              <p className="text-[11px] text-muted">AI mode: Empathetic therapist assistant</p>
+              <button
+                onClick={() => {
+                  const next = !useMemory;
+                  setUseMemory(next);
+                  localStorage.setItem("mindbridge_use_memory", String(next));
+                  setMemoryInsight(null);
+                }}
+                className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase ${useMemory ? "bg-secondary/20 text-secondary" : "bg-muted/20 text-muted"}`}
+              >
+                Memory {useMemory ? "On" : "Off"}
+              </button>
+            </div>
 
             {/* Memory Insight Card */}
             {memoryInsight && memoryInsight.trend !== "Baseline" && (
@@ -446,6 +495,36 @@ export function ChatPage() {
 
             {/* Input Area */}
             <div className="border-t border-border/40 px-4 py-3">
+              {!streamBuffer && messages.some((m) => m.senderType === "AI") && (
+                <div className="mb-2 flex flex-wrap gap-2">
+                  <button
+                    onClick={() => {
+                      const lastUser = [...messages].reverse().find((m) => m.senderType === "USER");
+                      if (lastUser) {
+                        setInput(lastUser.content);
+                        inputRef.current?.focus();
+                      }
+                    }}
+                    className="rounded-full border border-border/40 px-3 py-1 text-xs text-muted hover:text-foreground hover:border-secondary/40"
+                  >
+                    Regenerate reply
+                  </button>
+                  <button
+                    onClick={() => {
+                      setInput("Can you summarize what we discussed and give me 3 practical next steps?");
+                      inputRef.current?.focus();
+                    }}
+                    className="rounded-full border border-border/40 px-3 py-1 text-xs text-muted hover:text-foreground hover:border-secondary/40"
+                  >
+                    Summarize session
+                  </button>
+                </div>
+              )}
+              {sendError && (
+                <p className="mb-2 rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-xs font-medium text-warning">
+                  {sendError}
+                </p>
+              )}
               <div className="flex items-end gap-2">
                 <div className="relative flex-1">
                   <textarea
@@ -575,6 +654,8 @@ function ChatWelcome({ onSelectPrompt }: { onSelectPrompt: (text: string) => voi
           "I'm feeling anxious",
           "I can't sleep well",
           "Just need to talk",
+          "I feel overwhelmed and stuck",
+          "Help me calm down right now",
         ].map((prompt) => (
           <button
             key={prompt}

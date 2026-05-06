@@ -5,5 +5,6 @@ package com.mindbridge.gateway.chat;
  */
 public record ChatMessageRequest(
     Long sessionId,
-    String content
+    String content,
+    Boolean useMemory
 ) {}
