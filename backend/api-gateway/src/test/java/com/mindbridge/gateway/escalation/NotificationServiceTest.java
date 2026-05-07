@@ -12,6 +12,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 
 import java.util.List;
 
@@ -26,14 +27,16 @@ class NotificationServiceTest {
 
     private TherapistQueueRepository therapistQueueRepository;
     private NotificationOutboxRepository notificationOutboxRepository;
+    private SimpMessagingTemplate messagingTemplate;
     private NotificationService notificationService;
 
     @BeforeEach
     void setUp() {
         therapistQueueRepository = Mockito.mock(TherapistQueueRepository.class);
         notificationOutboxRepository = Mockito.mock(NotificationOutboxRepository.class);
+        messagingTemplate = Mockito.mock(SimpMessagingTemplate.class);
         notificationService = new NotificationService(
-                therapistQueueRepository, notificationOutboxRepository);
+                therapistQueueRepository, notificationOutboxRepository, messagingTemplate);
 
         when(therapistQueueRepository.save(any(TherapistQueue.class)))
                 .thenAnswer(i -> {

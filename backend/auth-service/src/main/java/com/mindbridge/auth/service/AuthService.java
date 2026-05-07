@@ -144,9 +144,9 @@ public class AuthService {
             System.out.println("LOG: Attempting to send real OTP email to " + email + " using " + mailFrom);
             SimpleMailMessage message = new SimpleMailMessage();
             if (mailFrom != null && !mailFrom.isBlank()) {
-                message.setFrom(mailFrom);
+                message.setFrom("Mindbridge <" + mailFrom + ">");
             } else {
-                message.setFrom("MindBridge AI <noreply@mindbridge.ai>");
+                message.setFrom("Mindbridge <noreply@mindbridge.ai>");
             }
             message.setTo(email);
             message.setSubject("Your MindBridge AI Login Code");

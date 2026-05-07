@@ -50,6 +50,7 @@ services:
       MINDBRIDGE_NLP_URL: http://nlp-service:8000
       JWT_SECRET: ${JWT_SECRET:-MindBridgeAI-Super-Secret-Key-Change-In-Production-2026}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-AIzaSyCYfwKT252q1US3_6rXNciSZsnv1HQOaZ0}
+      MEM0_API_KEY: ${MEM0_API_KEY}
       GMAIL_USER: ${GMAIL_USER}
       GMAIL_PASSWORD: ${GMAIL_PASSWORD}
     ports:

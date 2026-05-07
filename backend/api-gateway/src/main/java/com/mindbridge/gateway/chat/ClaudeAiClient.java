@@ -48,6 +48,7 @@ public class ClaudeAiClient {
             String emotion,
             Double valence,
             MemoryService.MemoryInsight memory,
+            String mem0Context,
             List<Map<String, String>> previousMessages) {
 
         // 1. Safety Filter Intercept Layer
@@ -56,7 +57,7 @@ public class ClaudeAiClient {
         }
 
         // 2. Intelligent Prompt Compilation
-        String systemPrompt = buildSystemPrompt(emotion, valence, memory);
+        String systemPrompt = buildSystemPrompt(emotion, valence, memory, mem0Context);
 
         // Prefer Anthropic when available.
         if (apiKey != null && !apiKey.isBlank()) {
@@ -169,7 +170,7 @@ public class ClaudeAiClient {
                 });
     }
 
-    private String buildSystemPrompt(String emotion, Double valence, MemoryService.MemoryInsight memory) {
+    private String buildSystemPrompt(String emotion, Double valence, MemoryService.MemoryInsight memory, String mem0Context) {
         StringBuilder prompt = new StringBuilder();
         prompt.append("You are MindBridge AI, an elite, highly empathetic mental wellness companion. ");
         prompt.append("You utilize principles of active listening, validation, and gentle CBT/DBT frameworks.\n\n");
@@ -190,6 +191,12 @@ public class ClaudeAiClient {
             prompt.append("- Known behavioral triggers: ").append(String.join(", ", memory.triggers())).append("\n");
             prompt.append("- Recent contextual summary: ").append(memory.recentSummary()).append("\n");
             prompt.append("(Instruction: Do not randomly quote this memory, but weave it intelligently to inform how you respond, showing you remember them.)\n");
+        }
+
+        if (mem0Context != null && !mem0Context.isBlank()) {
+            prompt.append("\nDEEP CONTEXTUAL MEMORY FACTS (From Mem0):\n");
+            prompt.append(mem0Context).append("\n");
+            prompt.append("(Instruction: Factor these specific long-term memory facts into your understanding of the user naturally.)\n");
         }
 
         return prompt.toString();

@@ -34,6 +34,7 @@ public class ChatWebSocketController {
     private final ClaudeAiClient claudeClient;
     private final RiskScoringPipeline riskScoringPipeline;
     private final EscalationIntegrationService escalationIntegrationService;
+    private final Mem0Client mem0Client;
 
     public ChatWebSocketController(
             ChatService chatService, 
@@ -42,7 +43,8 @@ public class ChatWebSocketController {
             MemoryService memoryService,
             ClaudeAiClient claudeClient,
             RiskScoringPipeline riskScoringPipeline,
-            EscalationIntegrationService escalationIntegrationService) {
+            EscalationIntegrationService escalationIntegrationService,
+            Mem0Client mem0Client) {
         this.chatService = chatService;
         this.messagingTemplate = messagingTemplate;
         this.nlpClient = nlpClient;
@@ -50,6 +52,7 @@ public class ChatWebSocketController {
         this.claudeClient = claudeClient;
         this.riskScoringPipeline = riskScoringPipeline;
         this.escalationIntegrationService = escalationIntegrationService;
+        this.mem0Client = mem0Client;
     }
 
     public record StreamDelta(String messageId, String content, boolean done) {}
@@ -70,6 +73,9 @@ public class ChatWebSocketController {
         }
 
         // Execute NLP asynchronously, then persist and broadcast on completion
+        // Asynchronously add memory to Mem0 without blocking the chat flow
+        mem0Client.addMemoryAsync(user.getId(), request.content());
+
         nlpClient.analyzeAsync(request.content()).subscribe(nlp -> {
             ChatMessageResponse response = chatService.saveAndEncrypt(
                     request.sessionId(), "USER", request.content(), nlp
@@ -122,25 +128,28 @@ public class ChatWebSocketController {
         
         // 1. Fetch DB Memory Context concurrently 
         MemoryService.MemoryInsight memory = includeMemory ? memoryService.getUserMemoryContext(userId) : null;
-        
-        // 2. Broadcast Start Typing
-        messagingTemplate.convertAndSend(
-                "/topic/session." + sessionId + ".typing",
-                new TypingEvent(sessionId, 0L, "MindBridge AI", true, Instant.now())
-        );
 
-        StringBuilder fullResponseBuilder = new StringBuilder();
-        String tempMessageId = "msg_stream_" + UUID.randomUUID().toString();
+        // Fetch Mem0 deep context
+        mem0Client.searchMemoryAsync(userId, userMessage).subscribe(mem0Context -> {
+            
+            // 2. Broadcast Start Typing
+            messagingTemplate.convertAndSend(
+                    "/topic/session." + sessionId + ".typing",
+                    new TypingEvent(sessionId, 0L, "MindBridge AI", true, Instant.now())
+            );
 
-        claudeClient.streamEmpatheticResponse(userMessage, nlp.emotion(), nlp.valence(), memory, List.of())
-            .doOnNext(chunk -> {
-                // Instantly pipe chunk backwards to STOMP
-                fullResponseBuilder.append(chunk);
-                messagingTemplate.convertAndSend(
-                        "/topic/session." + sessionId + ".stream",
-                        new StreamDelta(tempMessageId, chunk, false)
-                );
-            })
+            StringBuilder fullResponseBuilder = new StringBuilder();
+            String tempMessageId = "msg_stream_" + UUID.randomUUID().toString();
+
+            claudeClient.streamEmpatheticResponse(userMessage, nlp.emotion(), nlp.valence(), memory, mem0Context, List.of())
+                .doOnNext(chunk -> {
+                    // Instantly pipe chunk backwards to STOMP
+                    fullResponseBuilder.append(chunk);
+                    messagingTemplate.convertAndSend(
+                            "/topic/session." + sessionId + ".stream",
+                            new StreamDelta(tempMessageId, chunk, false)
+                    );
+                })
             .doOnComplete(() -> {
                 // Done writing chunks to UI. Stop typing indicator
                 messagingTemplate.convertAndSend(
@@ -176,5 +185,6 @@ public class ChatWebSocketController {
                 );
             })
             .subscribe(); // Launch flux
+        }); // Close mem0Client subscribe
     }
 }
