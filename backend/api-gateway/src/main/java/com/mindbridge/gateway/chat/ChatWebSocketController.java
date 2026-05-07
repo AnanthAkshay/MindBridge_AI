@@ -159,23 +159,26 @@ public class ChatWebSocketController {
                 
                 String finalResponse = fullResponseBuilder.toString();
                 
-                // Fire final NLP scan on AI text, physically persist it via AES encryption
-                NlpServiceClient.NlpResponse aiNlp = nlpClient.analyzeSync(finalResponse);
-                ChatMessageResponse aiSavedMsg = chatService.saveAndEncrypt(
-                        sessionId, "AI", finalResponse, aiNlp
-                );
-                
-                // Dispatch terminal event so React UI can swap streaming buffer for real DB record
-                messagingTemplate.convertAndSend(
-                        "/topic/session." + sessionId + ".stream",
-                        new StreamDelta(tempMessageId, "", true)
-                );
-                
-                // Broadcast official message event
-                messagingTemplate.convertAndSend(
-                        "/topic/session." + sessionId,
-                        aiSavedMsg
-                );
+                // Fire final NLP scan on AI text asynchronously to avoid blocking threads!
+                nlpClient.analyzeAsync(finalResponse).subscribe(aiNlp -> {
+                    ChatMessageResponse aiSavedMsg = chatService.saveAndEncrypt(
+                            sessionId, "AI", finalResponse, aiNlp
+                    );
+                    
+                    // Dispatch terminal event so React UI can swap streaming buffer for real DB record
+                    messagingTemplate.convertAndSend(
+                            "/topic/session." + sessionId + ".stream",
+                            new StreamDelta(tempMessageId, "", true)
+                    );
+                    
+                    // Broadcast official message event
+                    messagingTemplate.convertAndSend(
+                            "/topic/session." + sessionId,
+                            aiSavedMsg
+                    );
+                }, err -> {
+                    logger.error("Failed to analyze and save AI response", err);
+                });
             })
             .doOnError(err -> {
                 logger.error("AI response stream failed for session {}", sessionId, err);

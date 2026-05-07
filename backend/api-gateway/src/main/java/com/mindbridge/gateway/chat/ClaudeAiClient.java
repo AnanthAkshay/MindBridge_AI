@@ -128,7 +128,7 @@ public class ClaudeAiClient {
         );
 
         return webClient.post()
-                .uri("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={key}", geminiApiKey)
+                .uri("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={key}", geminiApiKey)
                 .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue(requestBody)
                 .retrieve()
