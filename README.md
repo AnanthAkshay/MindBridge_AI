@@ -6,7 +6,7 @@
 ### *Privacy-first, AI-powered Mental Wellness Platform*
 
 > **A calmer bridge between people, clinicians, and AI support.**  
-> Built for the **Google AI Hackathon 2026** · Powered by **Gemini AI**
+> Built for the **Rockverse Hackathon 2026** 
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-violet.svg?style=flat-square)](LICENSE)
 [![Built with Java](https://img.shields.io/badge/Backend-Spring_Boot_3-6db33f?style=flat-square&logo=spring)](https://spring.io/projects/spring-boot)
